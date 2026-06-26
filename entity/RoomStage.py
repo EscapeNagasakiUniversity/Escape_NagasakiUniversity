@@ -1,5 +1,7 @@
 import tkinter as tk
 from tkinter import messagebox
+import json
+import os
 
 class EscapeGame3D:
     def __init__(self, root):
@@ -8,39 +10,48 @@ class EscapeGame3D:
         """
         self.root = root
         self.root.title("疑似3D脱出ゲーム")
-        self.root.geometry("600x480") # 下部に選択状態を表示するため、少し縦幅を広げました
+        self.root.geometry("600x550") # スロットボタン等の配置のため、縦幅を少し広げました
         self.root.resizable(False, False)
+
+        # 【変更】 3つのセーブスロットのファイル名を定義
+        self.SAVE_SLOTS = {
+            1: "save_data_1.json",
+            2: "save_data_2.json",
+            3: "save_data_3.json"
+        }
 
         # プレイヤーの所持品（インベントリ）を管理するリスト
         self.inventory = []
         
-        # 【追加】 現在「選択中」のアイテム名を保持する変数（Noneは何も選択していない状態）
+        # 現在「選択中」のアイテム名
         self.selected_item = None
 
-        # 1. 各「視点（方向）」のデータを定義
-        # 【変更】 北の壁に、クリックできる「扉」の判定座標(coords)と状態(locked)を追加しました。
+        # 各視点の背景画像のファイル名やデータを定義
         self.room_data = {
             "北": {
-                "color": "#dcdcdc", 
+                "image_file": "bg_north.png",
+                "color": "#dcdcdc",
                 "object": "【大きな鉄の扉】\n（鍵がかかっている）", 
                 "next_left": "西", "next_right": "東",
                 "item": None,
-                # 扉のクリック判定用の座標（中央付近）と、鍵がかかっているかどうかのフラグ
                 "door": {"coords": (180, 80, 320, 260), "locked": True}
             },
             "東": {
+                "image_file": "bg_east.png",
                 "color": "#ffe4e1", 
                 "object": "【引き出し付きの棚】\n（中には何もなさそうだ）", 
                 "next_left": "北", "next_right": "南",
                 "item": None
             },
             "南": {
+                "image_file": "bg_south.png",
                 "color": "#e0ffff", 
                 "object": "【開かない窓】\n（外は暗くて何も見えない）", 
                 "next_left": "東", "next_right": "西",
                 "item": None
             },
             "西": {
+                "image_file": "bg_west.png",
                 "color": "#fafad2", 
                 "object": "【机】\n（何かが置いてあるぞ…？）", 
                 "next_left": "南", "next_right": "北",
@@ -48,90 +59,225 @@ class EscapeGame3D:
             }
         }
 
-        # 2. 最初は「北」からスタート
+        # 画像オブジェクトを保持するための辞書・変数
+        self.bg_images = {}
+        self.title_image = None
+        self.load_all_images()
+
+        # 最初は「北」からスタート
         self.current_direction = "北"
 
-        # 3. 画面のレイアウト（UI）を構築
-        self.create_widgets()
-        
-        # 4. 初回の画面描画
-        self.update_screen()
+        # 画面を切り替えるためのベースフレーム
+        self.title_frame = tk.Frame(self.root, width=600, height=550)
+        self.game_frame = tk.Frame(self.root, width=600, height=550)
 
-    def create_widgets(self):
+        # 画面の部品（UI）を作成
+        self.create_title_widgets()
+        self.create_game_widgets()
+        
+        # 最初はタイトル画面を表示する
+        self.show_title_screen()
+
+    def load_all_images(self):
+        """背景画像およびタイトル画像を事前に読み込みます。"""
+        for direction, data in self.room_data.items():
+            file_path = data["image_file"]
+            if os.path.exists(file_path):
+                try:
+                    self.bg_images[direction] = tk.PhotoImage(file=file_path)
+                except Exception as e:
+                    print(f"画像 {file_path} の読み込みに失敗しました: {e}")
+                    self.bg_images[direction] = None
+            else:
+                self.bg_images[direction] = None
+
+        title_file = "bg_title.png"
+        if os.path.exists(title_file):
+            try:
+                self.title_image = tk.PhotoImage(file=title_file)
+            except Exception as e:
+                print(f"タイトル画像の読み込みに失敗しました: {e}")
+                self.title_image = None
+
+    def create_title_widgets(self):
         """
-        画面を構成するボタンやキャンバス（画像表示エリア）を作成します。
+        【変更】 タイトル画面のレイアウトを構築します（ロードスロットを追加）。
         """
-        # --- 上部：現在の方向を表示するラベル ---
-        self.direction_label = tk.Label(self.root, text="", font=("MS Gothic", 16, "bold"))
+        self.title_canvas = tk.Canvas(self.title_frame, width=600, height=550, bg="#e0f7fa", highlightthickness=0)
+        self.title_canvas.pack()
+
+        if self.title_image:
+            self.title_canvas.create_image(300, 275, image=self.title_image)
+
+        # ゲームタイトル文字
+        self.title_canvas.create_text(
+            300, 100, 
+            text="長崎大学脱出ゲーム\n- 閉ざされた学び舎 -", 
+            font=("MS Gothic", 26, "bold"), 
+            fill="#006064", 
+            justify="center"
+        )
+
+        # --- はじめからスタートするボタン ---
+        btn_start = tk.Button(
+            self.title_frame, text="NEW GAME (新しく始める)", font=("MS Gothic", 12, "bold"),
+            bg="#00838f", fg="white", activebackground="#005662", activeforeground="white",
+            command=self.start_new_game, width=22, height=2, relief="raised", bd=3
+        )
+        self.title_canvas.create_window(300, 200, window=btn_start)
+
+        # --- 【追加】 セーブデータ選択（ロード）エリアのラベル ---
+        self.title_canvas.create_text(
+            300, 270, 
+            text="▼ 続きから始める（スロットを選択） ▼", 
+            font=("MS Gothic", 11, "bold"), 
+            fill="#004d40"
+        )
+
+        # 【追加】 タイトル表示用に、各スロットのボタンを保持するリスト
+        self.slot_buttons = []
+        
+        # スロット1〜3のボタンを縦に並べて配置する処理
+        for slot_num in [1, 2, 3]:
+            btn = tk.Button(
+                self.title_frame, text="", font=("MS Gothic", 10),
+                bg="#f5f5f5", relief="raised", bd=2, width=45, anchor="w", padx=10,
+                command=lambda s=slot_num: self.load_game(s)
+            )
+            self.slot_buttons.append(btn)
+            # キャンバス内にボタンを配置 (Y座標をずらしながら配置します)
+            self.title_canvas.create_window(300, 310 + (slot_num - 1) * 45, window=btn)
+
+        # クレジット表記
+        self.title_canvas.create_text(
+            300, 520, 
+            text="© 2026 Soshiro Nishimura", 
+            font=("MS Gothic", 10), 
+            fill="#555555"
+        )
+
+    def create_game_widgets(self):
+        """ゲーム本編の画面レイアウトを構築します。"""
+        self.direction_label = tk.Label(self.game_frame, text="", font=("MS Gothic", 16, "bold"))
         self.direction_label.pack(pady=5)
 
-        # --- 中央：メインの景色を描画するキャンバス ---
-        self.canvas = tk.Canvas(self.root, width=500, height=300, bg="white", relief="ridge", bd=2)
+        self.canvas = tk.Canvas(self.game_frame, width=500, height=300, bg="white", relief="ridge", bd=2)
         self.canvas.pack(pady=5)
-
-        # キャンバス内がクリックされたときに、on_canvas_click 関数を呼び出す
         self.canvas.bind("<Button-1>", self.on_canvas_click)
 
-        # --- 下部：所持品（インベントリ）を表示するフレーム ---
-        # 【変更】 アイテムをクリックして選択できるようにするため、ボタンを並べる形式に変更します
-        self.inventory_frame = tk.Frame(self.root)
+        self.inventory_frame = tk.Frame(self.game_frame)
         self.inventory_frame.pack(pady=5)
         
-        # 【追加】 現在どのアイテムを選択しているかを表示するラベル
-        self.select_status_label = tk.Label(self.root, text="選択中: なし", font=("MS Gothic", 10), fg="darkgreen")
+        self.select_status_label = tk.Label(self.game_frame, text="選択中: なし", font=("MS Gothic", 10), fg="darkgreen")
         self.select_status_label.pack(pady=2)
 
-        # --- 最下部：操作ボタンを配置するフレーム ---
-        button_frame = tk.Frame(self.root)
+        # 最下部：操作ボタン
+        button_frame = tk.Frame(self.game_frame)
         button_frame.pack(fill="x", pady=5)
 
-        # 左を向くボタン
-        self.btn_left = tk.Button(button_frame, text="◀ 左を向く", font=("MS Gothic", 12),
-                                  command=self.turn_left, width=12, height=2)
+        self.btn_left = tk.Button(button_frame, text="◀ 左を向く", font=("MS Gothic", 12), command=self.turn_left, width=12, height=2)
         self.btn_left.pack(side="left", padx=50)
 
-        # 調べるボタン
-        self.btn_investigate = tk.Button(button_frame, text="🔍 調べる", font=("MS Gothic", 12),
-                                         command=self.investigate, width=12, height=2)
+        self.btn_investigate = tk.Button(button_frame, text="🔍 調べる", font=("MS Gothic", 12), command=self.investigate, width=12, height=2)
         self.btn_investigate.pack(side="left", padx=20)
 
-        # 右を向くボタン
-        self.btn_right = tk.Button(button_frame, text="右を向く ▶", font=("MS Gothic", 12),
-                                   command=self.turn_right, width=12, height=2)
+        self.btn_right = tk.Button(button_frame, text="右を向く ▶", font=("MS Gothic", 12), command=self.turn_right, width=12, height=2)
         self.btn_right.pack(side="right", padx=50)
 
+        # 【変更】 セーブボタンエリア（3つのスロットに保存できるようボタンを3つ並べます）
+        system_frame = tk.Frame(self.game_frame)
+        system_frame.pack(pady=5)
+
+        tk.Label(system_frame, text="💾 セーブ保存先: ", font=("MS Gothic", 10, "bold")).pack(side="left", padx=5)
+        for slot_num in [1, 2, 3]:
+            btn_save = tk.Button(
+                system_frame, text=f"スロット {slot_num}", font=("MS Gothic", 9, "bold"),
+                command=lambda s=slot_num: self.save_game(s), bg="#e1f5fe", width=10
+            )
+            btn_save.pack(side="left", padx=5)
+
+        # タイトルに戻るボタン
+        btn_back_title = tk.Button(
+            system_frame, text="↩ タイトルへ", font=("MS Gothic", 9),
+            command=self.show_title_screen, bg="#ffe0b2", width=10
+        )
+        btn_back_title.pack(side="left", padx=20)
+
+    def show_title_screen(self):
+        """【変更】 タイトル画面を表示します。その際、セーブデータの状態を確認してボタン文字を更新します。"""
+        self.game_frame.pack_forget()
+        self.title_frame.pack(fill="both", expand=True)
+        self.update_title_slot_buttons() # スロット表示を最新にする
+
+    def update_title_slot_buttons(self):
+        """
+        【追加】 セーブファイルの有無を調べ、タイトル画面のロードボタンのテキストを更新します。
+        """
+        for slot_num, file_name in self.SAVE_SLOTS.items():
+            btn = self.slot_buttons[slot_num - 1]
+            if os.path.exists(file_name):
+                try:
+                    with open(file_name, "r", encoding="utf-8") as f:
+                        data = json.load(f)
+                    # セーブデータの内容（向きやアイテム数）をボタンに少し表示して分かりやすくします
+                    item_count = len(data["inventory"])
+                    direction = data["current_direction"]
+                    btn.config(
+                        text=f" スロット {slot_num} : 【{direction}の壁】に滞在中 (アイテム: {item_count}個)", 
+                        state="normal", bg="#e8f5e9"
+                    )
+                except:
+                    btn.config(text=f" スロット {slot_num} : データ破損エラー", state="disabled", bg="#ffebee")
+            else:
+                # データがない場合はクリックできないようにします
+                btn.config(text=f" スロット {slot_num} : ---------- NO DATA ----------", state="disabled", bg="#f5f5f5")
+
+    def start_new_game(self):
+        """【追加】 「はじめから」ゲームをリセットして開始します。"""
+        self.inventory = []
+        self.selected_item = None
+        self.current_direction = "北"
+        self.room_data["西"]["item"]["picked"] = False
+        self.room_data["北"]["door"]["locked"] = True
+        self.room_data["北"]["object"] = "【大きな鉄の扉】\n（鍵がかかっている）"
+        
+        self.title_frame.pack_forget()
+        self.game_frame.pack(fill="both", expand=True)
+        self.update_screen()
+
+    def start_game_loaded(self):
+        """ロード成功後にゲーム画面に切り替えます。"""
+        self.title_frame.pack_forget()
+        self.game_frame.pack(fill="both", expand=True)
+        self.update_screen()
+
     def update_screen(self):
-        """
-        現在の方向に基づいて、画面の画像（景色）、アイテム、インベントリボタンを更新します。
-        """
+        """現在の状態に基づいて、ゲーム画面を再描画します。"""
         data = self.room_data[self.current_direction]
         self.direction_label.config(text=f"【 {self.current_direction} の壁 】")
         
-        # キャンバスをクリア
         self.canvas.delete("all")
         
-        # 背景（壁）を描画
-        self.canvas.create_rectangle(0, 0, 500, 300, fill=data["color"], outline="")
+        if self.bg_images[self.current_direction]:
+            self.canvas.create_image(250, 150, image=self.bg_images[self.current_direction])
+        else:
+            self.canvas.create_rectangle(0, 0, 500, 300, fill=data["color"], outline="")
         
-        # 【追加】 北の壁の場合、扉のグラフィック（茶色の四角）を描画
         if self.current_direction == "北" and "door" in data:
             dc = data["door"]["coords"]
-            self.canvas.create_rectangle(dc[0], dc[1], dc[2], dc[3], fill="#8b4513", outline="#5c2e0b", width=3)
-            # ドアノブ
-            self.canvas.create_oval(dc[2]-20, (dc[1]+dc[3])//2-5, dc[2]-10, (dc[1]+dc[3])//2+5, fill="gold")
+            if not self.bg_images[self.current_direction]:
+                self.canvas.create_rectangle(dc[0], dc[1], dc[2], dc[3], fill="#8b4513", outline="#5c2e0b", width=3)
+                self.canvas.create_oval(dc[2]-20, (dc[1]+dc[3])//2-5, dc[2]-10, (dc[1]+dc[3])//2+5, fill="gold")
 
-        # 中央のオブジェクトテキストを描画（少し位置を調整）
         self.canvas.create_text(250, 50, text=data["object"], font=("MS Gothic", 14, "bold"), justify="center")
 
-        # アイテムの描画処理（西の壁）
         if data["item"] and not data["item"]["picked"]:
             coords = data["item"]["coords"]
             self.canvas.create_oval(coords[0], coords[1], coords[0]+20, coords[1]+20, fill="gold", outline="orange")
             self.canvas.create_rectangle(coords[0]+15, coords[1]+7, coords[2], coords[1]+13, fill="gold", outline="orange")
             self.canvas.create_text(coords[0]+30, coords[1]+25, text=data["item"]["name"], font=("MS Gothic", 9, "bold"))
 
-        # 【変更】 インベントリ（アイテム欄）のボタン表示を更新
-        # 一度古いボタンをすべて削除します
+        # インベントリボタンの更新
         for widget in self.inventory_frame.winfo_children():
             widget.destroy()
             
@@ -140,71 +286,53 @@ class EscapeGame3D:
         if not self.inventory:
             tk.Label(self.inventory_frame, text="なし", font=("MS Gothic", 11), fg="gray").pack(side="left")
         else:
-            # 拾ったアイテムを1つずつボタンとして並べます
             for item_name in self.inventory:
-                # クリックされたら select_item(item_name) が実行されるようにします
                 btn = tk.Button(self.inventory_frame, text=item_name, font=("MS Gothic", 10),
                                 command=lambda name=item_name: self.select_item(name), relief="raised", bd=2)
-                
-                # もしそのアイテムが現在選択中なら、ボタンの色を沈ませて分かりやすくします
                 if item_name == self.selected_item:
                     btn.config(relief="sunken", bg="lightgreen")
-                    
                 btn.pack(side="left", padx=5)
 
-        # 選択状態ラベルの更新
         if self.selected_item:
             self.select_status_label.config(text=f"選択中: [ {self.selected_item} ] (この状態で対象をクリック！)")
         else:
             self.select_status_label.config(text="選択中: なし")
 
     def select_item(self, item_name):
-        """
-        【追加】 アイテム欄のボタンが押されたとき、そのアイテムを選択状態（または解除）にします。
-        """
+        """アイテム欄のボタンが押されたとき、そのアイテムを選択状態にします。"""
         if self.selected_item == item_name:
-            self.selected_item = None # すでに選択されているものをもう一度押したら解除
+            self.selected_item = None
         else:
-            self.selected_item = item_name # 選択状態にする
-            
+            self.selected_item = item_name
         self.update_screen()
 
     def on_canvas_click(self, event):
-        """
-        キャンバス内がクリックされたときに実行される関数です。
-        アイテムの取得、または扉に対して鍵を使う処理を行います。
-        """
+        """キャンバス内がクリックされたときの処理です。"""
         click_x = event.x
         click_y = event.y
         data = self.room_data[self.current_direction]
         
-        # --- 1. 北の壁で「扉」がクリックされたかどうかの判定 ---
+        # 扉のクリック判定
         if self.current_direction == "北" and "door" in data:
             dc = data["door"]["coords"]
             if dc[0] <= click_x <= dc[2] and dc[1] <= click_y <= dc[3]:
-                
-                # 【鍵の使用処理】 扉がロックされていて、かつ「古い鍵」を選択している場合
                 if data["door"]["locked"] and self.selected_item == "古い鍵":
                     data["door"]["locked"] = False
                     data["object"] = "【大きな鉄の扉】\n（鍵が開いた！脱出できるぞ！）"
-                    self.inventory.remove("古い鍵") # 使ったのでインベントリから消去
+                    self.inventory.remove("古い鍵")
                     self.selected_item = None
                     messagebox.showinfo("カチャリ…", "古い鍵を使って扉のロックを解除した！")
                     self.update_screen()
                     return
-                
-                # 鍵が開いた状態で、もう一度扉をクリックするとゲームクリア！
                 elif not data["door"]["locked"]:
-                    messagebox.showinfo("クリア！", "おめでとうございます！\n扉を開けて部屋から脱出しました！")
-                    self.root.destroy() # ウィンドウを閉じてゲーム終了
+                    messagebox.showinfo("クリア！", "おめでとうございます！\n部屋から脱出しました！")
+                    self.show_title_screen()
                     return
-                
-                # 鍵を持っていない、または選択していない場合
                 else:
                     messagebox.showwarning("調べた", "扉には頑丈な鍵がかかっていて開かない。")
                     return
 
-        # --- 2. 西の壁で「アイテム」がクリックされたかどうかの判定 ---
+        # アイテムのクリック判定
         if data["item"] and not data["item"]["picked"]:
             item = data["item"]
             x1, y1, x2, y2 = item["coords"]
@@ -231,6 +359,54 @@ class EscapeGame3D:
         data = self.room_data[self.current_direction]
         messagebox.showinfo("調べる", data["object"].replace('\n', ''))
 
+    # ==========================================================================
+    # 【変更】 セーブ＆ロード処理（スロット番号を受け取るように拡張）
+    # ==========================================================================
+    def save_game(self, slot_num):
+        """
+        指定されたスロット番号に現在のゲーム状態を保存します。
+        """
+        file_name = self.SAVE_SLOTS[slot_num]
+        
+        save_data = {
+            "current_direction": self.current_direction,
+            "inventory": self.inventory,
+            "key_picked": self.room_data["西"]["item"]["picked"],
+            "door_locked": self.room_data["北"]["door"]["locked"],
+            "north_object": self.room_data["北"]["object"]
+        }
+        try:
+            with open(file_name, "w", encoding="utf-8") as f:
+                json.dump(save_data, f, ensure_ascii=False, indent=4)
+            messagebox.showinfo("セーブ完了", f"スロット {slot_num} にゲームの状態を保存しました！")
+        except Exception as e:
+            messagebox.showerror("エラー", f"セーブに失敗しました:\n{e}")
+
+    def load_game(self, slot_num):
+        """
+        指定されたスロット番号のJSONファイルからゲーム状態を読み込んで復元します。
+        """
+        file_name = self.SAVE_SLOTS[slot_num]
+        
+        if not os.path.exists(file_name):
+            messagebox.showwarning("ロード失敗", f"スロット {slot_num} のセーブデータが見つかりません。")
+            return
+        try:
+            with open(file_name, "r", encoding="utf-8") as f:
+                save_data = json.load(f)
+
+            self.current_direction = save_data["current_direction"]
+            self.inventory = save_data["inventory"]
+            self.room_data["西"]["item"]["picked"] = save_data["key_picked"]
+            self.room_data["北"]["door"]["locked"] = save_data["door_locked"]
+            self.room_data["北"]["object"] = save_data["north_object"]
+            self.selected_item = None
+            
+            # ロード成功したら本編画面へ切り替え
+            self.start_game_loaded()
+            messagebox.showinfo("ロード完了", f"スロット {slot_num} からゲームを再開します！")
+        except Exception as e:
+            messagebox.showerror("エラー", f"ロードに失敗しました:\n{e}")
 
 # ==============================================================================
 # プログラムの実行
