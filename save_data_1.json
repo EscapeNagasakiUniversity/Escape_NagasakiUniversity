@@ -1,0 +1,9 @@
+{
+    "current_direction": "西",
+    "inventory": [
+        "古い鍵"
+    ],
+    "key_picked": true,
+    "door_locked": true,
+    "north_object": "【大きな鉄の扉】\n（鍵がかかっている）"
+}
