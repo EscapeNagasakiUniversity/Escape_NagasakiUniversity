@@ -1,10 +1,10 @@
 # control.py
 from typing import Dict, Any
-from boundary import (
+from Escape_NagasakiUniversity.class.boundary import (
     MessagePage, StagePage, InventoryPage, 
     GimmickPage, CorrectCreatePage, MenuPage
 )
-from entity import Player, RoomStage, Item, Gimmick, SaveData
+from Escape_NagasakiUniversity.class.entity import Player, RoomStage, Item, Gimmick, SaveData
 
 
 class SavedataManager:
