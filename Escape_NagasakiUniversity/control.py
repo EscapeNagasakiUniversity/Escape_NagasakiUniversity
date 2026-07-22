@@ -1,8 +1,16 @@
-# control.py
 import os
 import sys
 import importlib.util
 from typing import Dict, Any
+
+# ==============================================================================
+# 【変更部分の説明】
+# 1. boundary.py と entity.py のインポートで 'class' という予約語を
+#    回避するため、動的インポート（importlib）を使用する方式に変更しました。
+# 2. クラス内の各メソッドの処理意図が分かりやすいように、詳細なコメントアウトを追加しました。
+# 3. RoomStage および Gimmick の初期化時の引数エラー（TypeError）を解消するため、
+#    インスタンス化後にプロパティへ直接値を代入する方式に変更しました。
+# ==============================================================================
 
 def load_local_module(module_name: str, file_name: str):
     """
