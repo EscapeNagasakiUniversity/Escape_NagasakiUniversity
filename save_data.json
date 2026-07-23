@@ -19,22 +19,13 @@
             "zoom_state": null
         },
         "inventory": {
-            "items": [
-                "coin_100",
-                "remote",
-                "cutter",
-                "broom",
-                "remote"
-            ],
+            "items": [],
             "selected_item_id": null
         },
         "gimmicks": {
             "exit_door": false,
             "room2_door": false,
-            "n_locker": true,
             "e_locker": false,
-            "w_locker": false,
-            "drawer": true,
             "safe": false,
             "vending_power": false,
             "pc_boot": false,
@@ -43,7 +34,98 @@
             "planter_n": false,
             "planter_e": false,
             "planter_s": false,
-            "planter_w": false
+            "planter_w": false,
+            "got_broom": false,
+            "got_remote": false,
+            "got_shovel": false,
+            "got_coin": false,
+            "got_charger": false,
+            "monitors_flashed": true
         }
+    },
+    "slot_2": {
+        "room_stage": {
+            "current_room": 1,
+            "current_dir_index": 3,
+            "direction": "W",
+            "zoom_state": null
+        },
+        "inventory": {
+            "items": [
+                "shovel",
+                "old_key",
+                "remote",
+                "charger"
+            ],
+            "selected_item_id": null
+        },
+        "gimmicks": {
+            "exit_door": false,
+            "room2_door": true,
+            "e_locker": false,
+            "safe": true,
+            "vending_power": true,
+            "pc_boot": false,
+            "pc_login": false,
+            "projector": false,
+            "planter_n": false,
+            "planter_e": true,
+            "planter_s": false,
+            "planter_w": false,
+            "got_broom": true,
+            "got_remote": true,
+            "got_shovel": true,
+            "got_coin": true,
+            "got_charger": true,
+            "monitors_flashed": true
+        }
+    },
+    "slot_3": {
+        "room_stage": {
+            "current_room": 1,
+            "current_dir_index": 2,
+            "direction": "S",
+            "zoom_state": null
+        },
+        "inventory": {
+            "items": [
+                "shovel",
+                "old_key",
+                "remote_with_battery"
+            ],
+            "selected_item_id": "remote_with_battery"
+        },
+        "gimmicks": {
+            "exit_door": false,
+            "room2_door": true,
+            "e_locker": true,
+            "safe": true,
+            "vending_power": true,
+            "pc_boot": true,
+            "pc_login": false,
+            "projector": true,
+            "planter_n": true,
+            "planter_e": true,
+            "planter_s": true,
+            "planter_w": true,
+            "got_broom": true,
+            "got_remote": true,
+            "got_shovel": true,
+            "got_coin": true,
+            "got_charger": true,
+            "got_battery": true,
+            "monitors_flashed": true
+        },
+        "e_locker_colors": [
+            "red",
+            "blue",
+            "yellow",
+            "blue",
+            "red",
+            "red",
+            "yellow",
+            "blue",
+            "blue"
+        ]
     }
 }

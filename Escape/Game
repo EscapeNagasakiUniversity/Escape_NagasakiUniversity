@@ -1,13 +1,13 @@
 import tkinter as tk
 from tkinter import messagebox
-from tkinter import simpledialog  # 文字列入力ダイアログ（askstring）を使用するためのインポート
+from tkinter import simpledialog
 import json
 import os
 from typing import Optional, Dict, Any, List
 
 # =========================================================
 # 【マスターデータ】アイテム定義
-# すべてのアイテムの名称、画像キー、詳細画像キー、説明文を管理します。
+# ゲーム内で登場するすべてのアイテムの基本情報を管理する辞書
 # =========================================================
 ITEM_MASTER = {
     'broom': {'name': 'ほうき', 'img': 'broom.png', 'detail': 'broom_detail.png', 'desc': '柄の長い掃除用のほうきです。'},
@@ -25,75 +25,159 @@ ITEM_MASTER = {
 
 # =========================================================
 # 【マスターデータ】ステージ配置定義 (STAGE_LAYOUT)
-# 各部屋、方角、拡大状態におけるクリック可能領域（当たり判定）を定義します。
+# 画面上の当たり判定（クリック領域）、オブジェクトの種類、遷移先を定義
 # =========================================================
 STAGE_LAYOUT = {
     # --- 部屋1：北向き (N) ---
     (1, 'N', None): [
-        {'rect': (260, 120, 380, 280), 'type': 'object', 'target': 'n_locker'},       # ロッカー
-        {'rect': (200, 260, 440, 310), 'type': 'object', 'target': 'planter_n'},     # プランター
-        {'rect': (280, 80, 360, 200), 'type': 'gimmick_door', 'target': 'exit_door'}   # 脱出扉
+        {'rect': (220, 160, 340, 435), 'type': 'object', 'target': 'n_locker'},       
+        {'rect': (340, 310, 430, 435), 'type': 'object', 'target': 'planter_n'},     
+        {'rect': (435, 140, 605, 435), 'type': 'gimmick_door', 'target': 'exit_door'}   
     ],
     (1, 'N', 'n_locker_detail.png'): [
-        {'rect': (200, 80, 440, 240), 'type': 'zoom_action', 'target': 'open_n_locker'}
+        {'rect': (160, 100, 260, 430), 'type': 'object', 'target': 'get_broom'},
+        {'rect': (270, 240, 340, 330), 'type': 'object', 'target': 'get_remote'}
     ],
+    (1, 'N', 'planter_detail.png'): [
+        {'rect': (180, 150, 460, 380), 'type': 'object', 'target': 'dig_planter_n'}
+    ],
+    (1, 'N', 'planter_n_dig.png'): [],
 
     # --- 部屋1：東向き (E) ---
     (1, 'E', None): [
-        {'rect': (260, 120, 380, 280), 'type': 'object', 'target': 'e_locker'},       # ロッカー
-        {'rect': (200, 260, 440, 310), 'type': 'object', 'target': 'planter_e'},     # プランター
-        {'rect': (100, 150, 180, 230), 'type': 'object', 'target': 'projector'},     # プロジェクター
-        {'rect': (450, 140, 550, 240), 'type': 'object', 'target': 'whiteboard'}     # ホワイトボード
+        {'rect': (35, 150, 165, 435), 'type': 'object', 'target': 'e_locker'},       
+        {'rect': (205, 60, 580, 300), 'type': 'object', 'target': 'whiteboard'},     
+        {'rect': (410, 320, 500, 400), 'type': 'object', 'target': 'projector'},     
+        {'rect': (515, 315, 615, 435), 'type': 'object', 'target': 'planter_e'}      
     ],
     (1, 'E', 'e_locker_detail.png'): [
-        {'rect': (200, 80, 440, 240), 'type': 'zoom_action', 'target': 'e_locker_keypad'}
+        # 南京錠の位置にだけ判定を合わせる。
+        {'rect': (260, 210, 290, 250), 'type': 'zoom_action', 'target': 'e_locker_puzzle'}
     ],
+    (1, 'E', 'e_locker_puzzle.png'): [
+        {'rect': (140, 95, 253, 189), 'type': 'zoom_action', 'target': 'e_locker_cell_0'},
+        {'rect': (253, 95, 374, 189), 'type': 'zoom_action', 'target': 'e_locker_cell_1'},
+        {'rect': (374, 95, 495, 189), 'type': 'zoom_action', 'target': 'e_locker_cell_2'},
+        {'rect': (140, 189, 253, 290), 'type': 'zoom_action', 'target': 'e_locker_cell_3'},
+        {'rect': (253, 189, 374, 290), 'type': 'zoom_action', 'target': 'e_locker_cell_4'},
+        {'rect': (374, 189, 495, 290), 'type': 'zoom_action', 'target': 'e_locker_cell_5'},
+        {'rect': (140, 290, 253, 390), 'type': 'zoom_action', 'target': 'e_locker_cell_6'},
+        {'rect': (253, 290, 374, 390), 'type': 'zoom_action', 'target': 'e_locker_cell_7'},
+        {'rect': (374, 290, 495, 390), 'type': 'zoom_action', 'target': 'e_locker_cell_8'}
+    ],
+    (1, 'E', 'e_locker_contents.png'): [
+        {'rect': (255, 280, 325, 380), 'type': 'object', 'target': 'get_battery'}
+    ],
+    (1, 'E', 'planter_detail.png'): [
+        {'rect': (180, 150, 460, 380), 'type': 'object', 'target': 'dig_planter_e'}
+    ],
+    (1, 'E', 'planter_e_dig.png'): [],
 
     # --- 部屋1：南向き (S) ---
     (1, 'S', None): [
-        {'rect': (150, 120, 270, 280), 'type': 'object', 'target': 'vending_machine'}, # 自販機
-        {'rect': (200, 260, 440, 310), 'type': 'object', 'target': 'planter_s'},     # プランター
-        {'rect': (400, 150, 480, 280), 'type': 'door', 'target': 2, 'target_dir': 'N'} # もう一つの部屋への扉
+        {'rect': (20, 315, 120, 435), 'type': 'object', 'target': 'planter_s'},      
+        {'rect': (135, 75, 335, 435), 'type': 'object', 'target': 'vending_machine'}, 
+        {'rect': (395, 140, 585, 435), 'type': 'door', 'target': 2, 'target_dir': 'N'} 
     ],
     (1, 'S', 'vending_detail.png'): [
-        {'rect': (180, 260, 240, 290), 'type': 'zoom_action', 'target': 'vending_bottom'}, # 自販機の下（ほうき用）
-        {'rect': (175, 160, 245, 240), 'type': 'zoom_action', 'target': 'vending_buttons'},# 自販機のボタン
-        {'rect': (180, 242, 205, 258), 'type': 'zoom_action', 'target': 'vending_coin_slot'} # コイン投入口
+        {'rect': (290, 220, 350, 290), 'type': 'object', 'target': 'vending_padlock'},   
+        {'rect': (360, 240, 400, 280), 'type': 'object', 'target': 'vending_coin_slot'}, 
+        {'rect': (200, 390, 420, 450), 'type': 'object', 'target': 'vending_bottom'}     
     ],
+    # 自販機の3x3パズル画面（S-自販機-謎.png）の当たり判定
+    # 画像内のマス目の実座標に合わせて調整済み
+    # 列境界: x = 120, 253, 387, 520 / 行境界: y = 70, 183, 297, 410
+    (1, 'S', 'S-自販機-謎.png'): [
+        {'rect': (120, 70, 253, 183), 'type': 'zoom_action', 'target': 'vending_puzzle_0'},
+        {'rect': (253, 70, 387, 183), 'type': 'zoom_action', 'target': 'vending_puzzle_1'},
+        {'rect': (387, 70, 520, 183), 'type': 'zoom_action', 'target': 'vending_puzzle_2'},
+        {'rect': (120, 183, 253, 297), 'type': 'zoom_action', 'target': 'vending_puzzle_3'},
+        {'rect': (253, 183, 387, 297), 'type': 'zoom_action', 'target': 'vending_puzzle_4'},
+        {'rect': (387, 183, 520, 297), 'type': 'zoom_action', 'target': 'vending_puzzle_5'},
+        {'rect': (120, 297, 253, 410), 'type': 'zoom_action', 'target': 'vending_puzzle_6'},
+        {'rect': (253, 297, 387, 410), 'type': 'zoom_action', 'target': 'vending_puzzle_7'},
+        {'rect': (387, 297, 520, 410), 'type': 'zoom_action', 'target': 'vending_puzzle_8'}
+    ],
+    (1, 'S', 'planter_detail.png'): [
+        {'rect': (180, 150, 460, 380), 'type': 'object', 'target': 'dig_planter_s'}
+    ],
+    (1, 'S', 'planter_s_dig.png'): [],
 
     # --- 部屋1：西向き (W) ---
     (1, 'W', None): [
-        {'rect': (100, 120, 220, 280), 'type': 'object', 'target': 'w_locker'},       # ロッカー
-        {'rect': (350, 160, 450, 250), 'type': 'object', 'target': 'pc'},            # パソコン
-        {'rect': (350, 255, 450, 285), 'type': 'object', 'target': 'drawer'},        # 引き出し
-        {'rect': (200, 260, 440, 310), 'type': 'object', 'target': 'planter_w'}      # プランター
+        {'rect': (45, 150, 165, 435), 'type': 'object', 'target': 'w_locker'},       
+        {'rect': (190, 315, 280, 435), 'type': 'object', 'target': 'planter_w'},      
+        {'rect': (330, 315, 480, 400), 'type': 'object', 'target': 'pc'},            
+        {'rect': (320, 400, 375, 475), 'type': 'object', 'target': 'drawer'}         
     ],
     (1, 'W', 'w_locker_detail.png'): [
-        {'rect': (220, 100, 320, 220), 'type': 'zoom_action', 'target': 'w_safe'}    # 金庫
+        {'rect': (250, 230, 330, 330), 'type': 'object', 'target': 'get_shovel'},  
+        {'rect': (180, 320, 340, 430), 'type': 'object', 'target': 'w_safe'}       
     ],
-    (1, 'W', 'safe_detail.png'): [
-        {'rect': (200, 80, 440, 240), 'type': 'zoom_action', 'target': 'open_safe'}
+    (1, 'W', 'W-金庫中身.png'): [
+        {'rect': (140, 160, 320, 360), 'type': 'object', 'target': 'get_charger'}  
     ],
     (1, 'W', 'drawer_detail.png'): [
-        {'rect': (220, 140, 420, 200), 'type': 'zoom_action', 'target': 'open_drawer'}
+        {'rect': (280, 280, 360, 340), 'type': 'object', 'target': 'get_coin'}     
     ],
+    (1, 'W', 'planter_detail.png'): [
+        {'rect': (180, 150, 460, 380), 'type': 'object', 'target': 'dig_planter_w'}
+    ],
+    (1, 'W', 'planter_w_dig.png'): [],
     (1, 'W', 'pc_detail.png'): [
         {'rect': (200, 100, 440, 220), 'type': 'zoom_action', 'target': 'pc_screen'}
     ],
+    # 起動後(充電器接続後)は、ログイン前・ログイン後ともにこの pc_login_detail.png を
+    # 拡大画面として使う。ログインが済んでいない間は StagePage 側で
+    # パスワード画面サンプル画像を画面部分に重ねて隠す。
+    # クリック領域は実画像の白い画面部分(37,54)-(601,348)に合わせている。
+    (1, 'W', 'pc_login_detail.png'): [
+        {'rect': (37, 54, 601, 348), 'type': 'zoom_action', 'target': 'pc_screen'}
+    ],
 
     # --- もう一つの部屋 (Room 2) ---
+    # room2.png(640x480)を実際に解析して得たモニター画面(水色部分)の座標。
+    # 従来の座標(x:352〜928等)はキャンバスサイズ(640x480)を超えており、
+    # そもそも画面外を指していたため全くクリックできなかった。
     (2, 'N', None): [
-        {'rect': (150, 80, 490, 240), 'type': 'object', 'target': 'monitors'}        # 9台のモニター
+        {'rect': (231, 78, 340, 135), 'type': 'zoom_action', 'target': 'monitor_0'},
+        {'rect': (351, 78, 460, 135), 'type': 'zoom_action', 'target': 'monitor_1'},
+        {'rect': (471, 78, 580, 135), 'type': 'zoom_action', 'target': 'monitor_2'},
+        {'rect': (231, 165, 340, 223), 'type': 'zoom_action', 'target': 'monitor_3'},
+        {'rect': (351, 165, 460, 223), 'type': 'zoom_action', 'target': 'monitor_4'},
+        {'rect': (471, 165, 580, 223), 'type': 'zoom_action', 'target': 'monitor_5'},
+        {'rect': (231, 253, 340, 310), 'type': 'zoom_action', 'target': 'monitor_6'},
+        {'rect': (351, 253, 460, 310), 'type': 'zoom_action', 'target': 'monitor_7'},
+        {'rect': (471, 253, 580, 310), 'type': 'zoom_action', 'target': 'monitor_8'}
     ]
 }
 
 SAVE_FILE_PATH = "save_data.json"
 
 # =========================================================
+# 【マスターデータ】モニター点灯順 / 自販機パズル正解順
+# ホワイトボードに表示されるヒントで示される「モニターが光る順番」と、
+# 自販機の3x3パネルを押す正しい順番を同じ値にすることで、
+# 「モニターの光り方を覚えて自販機で再現する」という一連の謎解きにする。
+# 添字はモニター番号(=自販機パネル番号)で、0〜8が3x3の左上から右下に対応する。
+# =========================================================
+MONITOR_LIGHT_SEQUENCE: List[int] = [0, 1, 2, 5, 8, 7, 6, 3, 4]
+
+# N面にあるロッカーの配色。Eロッカーの9マスをこの順に合わせると解錠される。
+E_LOCKER_CORRECT_COLORS: List[str] = [
+    'red', 'blue', 'yellow',
+    'blue', 'red', 'red',
+    'yellow', 'blue', 'blue'
+]
+E_LOCKER_COLOR_CYCLE: List[str] = ['red', 'blue', 'yellow']
+
+# =========================================================
 # entity パッケージ (エンティティ層)
+# データ構造やモデルを定義するクラス群
 # =========================================================
 
 class Item:
+    """各アイテムのデータ構造を保持するクラス"""
     def __init__(self, item_id: str, item_name: str, image_key: str, detail_image_key: str, description: str):
         self.item_id = item_id
         self.item_name = item_name
@@ -101,16 +185,15 @@ class Item:
         self.detail_image_key = detail_image_key
         self.description = description
 
-    def get(self) -> bool:
-        return True
-
 class Gimmick:
+    """ゲーム内のギミックの正誤状態や情報を管理するクラス"""
     def __init__(self, gimmick_id: str, correct: bool, correct_information: str):
         self.gimmick_id = gimmick_id
         self.correct = correct
         self.correct_information = correct_information
 
 class RoomStage:
+    """現在の部屋の位置、向き、ズーム状態を管理するクラス"""
     def __init__(self):
         self.directions: list[str] = ['N', 'E', 'S', 'W']
         self.current_dir_index: int = 0
@@ -119,13 +202,14 @@ class RoomStage:
         self.zoom_state: Optional[str] = None
 
 class Player:
+    """プレイヤーの基本情報を保持するクラス"""
     def __init__(self, name: str = "西村想士郎"):
         self.name = name
 
 class SaveData:
+    """セーブデータの読み込みとファイル書き込みを管理するクラス"""
     def __init__(self):
         pass
-
     def _load_all_data(self) -> dict:
         if os.path.exists(SAVE_FILE_PATH):
             try:
@@ -134,7 +218,6 @@ class SaveData:
             except Exception:
                 pass
         return {"slot_1": None, "slot_2": None, "slot_3": None}
-
     def overwrite(self, item: Any, flag: bool) -> None:
         if flag and isinstance(item, tuple):
             slot_id, game_data = item
@@ -145,7 +228,6 @@ class SaveData:
                     json.dump(all_data, f, indent=4, ensure_ascii=False)
             except Exception as e:
                 print(f"[Entity/SaveData] 保存エラー: {e}")
-
     def get_save_data(self, item: Any, flag: bool) -> Optional[dict]:
         if flag and isinstance(item, str):
             all_data = self._load_all_data()
@@ -154,87 +236,122 @@ class SaveData:
 
 # =========================================================
 # control パッケージ (コントロール層)
+# ゲームのルール、アイテム使用、ギミックの判定処理を管理するクラス
 # =========================================================
 
 class GameManager:
+    """ゲーム全体の進行状態やプレイヤーのアクションを制御するマネージャー"""
     def __init__(self, room_stage: RoomStage, player: Player, inventory_page: Any, stage_page: Any):
         self.room_stage = room_stage
         self.player = player
         self.inventory_page = inventory_page
         self.stage_page = stage_page
-        
         self.items: List[Item] = []
         self.selected_item_id: Optional[str] = None
         
-        # 各種ギミックの初期状態定義
+        self.vending_correct_sequence = list(MONITOR_LIGHT_SEQUENCE)
+        self.vending_current_input = []
+        # None は未選択（白）。各マスはクリックごとに赤→青→黄→赤と変わる。
+        self.e_locker_colors: List[Optional[str]] = [None] * 9
+
+        # ギミックの初期状態定義
         self.gimmicks: Dict[str, Gimmick] = {
             'exit_door': Gimmick('exit_door', False, '脱出扉が開いた。'),
             'room2_door': Gimmick('room2_door', False, 'もう一つの部屋への扉が開いた。'),
-            'n_locker': Gimmick('n_locker', False, 'Nロッカー解錠'),
             'e_locker': Gimmick('e_locker', False, 'Eロッカー解錠'),
-            'w_locker': Gimmick('w_locker', False, 'Wロッカー解錠'),
-            'drawer': Gimmick('drawer', False, '引き出し解錠'),
             'safe': Gimmick('safe', False, '金庫解錠'),
-            'vending_power': Gimmick('vending_power', False, '自販機通電'),
+            'vending_power': Gimmick('vending_power', False, '自販機通電(謎解きクリア)'),
             'pc_boot': Gimmick('pc_boot', False, 'パソコン起動'),
             'pc_login': Gimmick('pc_login', False, 'パソコンログイン成功'),
             'projector': Gimmick('projector', False, 'プロジェクター起動'),
             'planter_n': Gimmick('planter_n', False, 'Nプランター捜索済'),
             'planter_e': Gimmick('planter_e', False, 'Eプランター捜索済'),
             'planter_s': Gimmick('planter_s', False, 'Sプランター捜索済'),
-            'planter_w': Gimmick('planter_w', False, 'Wプランター捜索済')
+            'planter_w': Gimmick('planter_w', False, 'Wプランター捜索済'),
+            'got_broom': Gimmick('got_broom', False, 'ほうき取得済'),
+            'got_remote': Gimmick('got_remote', False, 'リモコン取得済'),
+            'got_shovel': Gimmick('got_shovel', False, 'シャベル取得済'),
+            'got_coin': Gimmick('got_coin', False, 'コイン取得済'),
+            'got_charger': Gimmick('got_charger', False, '充電器取得済'),
+            'got_battery': Gimmick('got_battery', False, '電池取得済'),
+            'monitors_flashed': Gimmick('monitors_flashed', True, 'モニター常時点灯')
         }
-        
         self.reset_game()
 
     def reset_game(self) -> None:
+        """ゲームの状態を初期化する"""
         self.room_stage.current_room = 1
         self.room_stage.current_dir_index = 0
         self.room_stage.direction = self.room_stage.directions[0]
         self.room_stage.zoom_state = None
         self.selected_item_id = None
         self.items.clear()
-        
-        for gimmick in self.gimmicks.values():
-            gimmick.correct = False
+        self.vending_current_input.clear()
+        self.e_locker_colors = [None] * 9
+        for gimmick_id, gimmick in self.gimmicks.items():
+            if gimmick_id == 'monitors_flashed':
+                gimmick.correct = True
+            else:
+                gimmick.correct = False
 
     def object_identify(self, target_id: str) -> None:
-        """オブジェクトがクリックされた時の詳細な謎解き分岐処理"""
-        
-        # --- Nの壁：ロッカー ---
+        """クリックされたオブジェクトに応じたイベントや謎解き処理を実行する"""
         if target_id == 'n_locker':
             self.room_stage.zoom_state = 'n_locker_detail.png'
             self.stage_page.confirm()
-        elif target_id == 'open_n_locker':
-            # 【変更】ギミックのクリアフラグで判定し、すでにアイテム取得済みなら重複入手させない
-            if not self.gimmicks['n_locker'].correct:
+        elif target_id == 'get_broom':
+            if not self.gimmicks['got_broom'].correct:
                 self.items.append(Item('broom', ITEM_MASTER['broom']['name'], ITEM_MASTER['broom']['img'], ITEM_MASTER['broom']['detail'], ITEM_MASTER['broom']['desc']))
-                self.items.append(Item('remote', ITEM_MASTER['remote']['name'], ITEM_MASTER['remote']['img'], ITEM_MASTER['remote']['detail'], ITEM_MASTER['remote']['desc']))
-                self.gimmicks['n_locker'].correct = True
+                self.gimmicks['got_broom'].correct = True
                 self.stage_page.confirm()
-                messagebox.showinfo("発見", "ロッカーから「ほうき」と「リモコン」を手に入れた！")
+                messagebox.showinfo("発見", "「ほうき」を手に入れた！")
             else:
-                messagebox.showinfo("調査", "ロッカーの中はもうからっぽだ。")
+                messagebox.showinfo("調査", "そこにはもう何もない。")
+        elif target_id == 'get_remote':
+            if not self.gimmicks['got_remote'].correct:
+                self.items.append(Item('remote', ITEM_MASTER['remote']['name'], ITEM_MASTER['remote']['img'], ITEM_MASTER['remote']['detail'], ITEM_MASTER['remote']['desc']))
+                self.gimmicks['got_remote'].correct = True
+                self.stage_page.confirm()
+                messagebox.showinfo("発見", "「リモコン」を手に入れた！")
+            else:
+                messagebox.showinfo("調査", "そこにはもう何もない。")
 
-        # --- Eの壁：ロッカー（テンキー入力） ---
         elif target_id == 'e_locker':
-            self.room_stage.zoom_state = 'e_locker_detail.png'
+            self.room_stage.zoom_state = (
+                'e_locker_contents.png' if self.gimmicks['e_locker'].correct
+                else 'e_locker_detail.png'
+            )
             self.stage_page.confirm()
-        elif target_id == 'e_locker_keypad':
-            # 【変更】ギミックのクリアフラグで判定し、既に解錠済みなら再度暗号入力をさせない
-            if not self.gimmicks['e_locker'].correct:
-                ans = simpledialog.askstring("テンキー", "4桁の暗号を入力してください:")
-                if ans == "2026": # サンプル暗号
-                    self.items.append(Item('battery', ITEM_MASTER['battery']['name'], ITEM_MASTER['battery']['img'], ITEM_MASTER['battery']['detail'], ITEM_MASTER['battery']['desc']))
-                    self.gimmicks['e_locker'].correct = True
-                    self.stage_page.confirm()
-                    messagebox.showinfo("成功", "ガチャリ！ロッカーが開いて「電池」を手に入れた！")
-                elif ans is not None:
-                    messagebox.showerror("エラー", "暗号が違います。")
-            else:
-                messagebox.showinfo("調査", "ロッカーはすでに開いており、中身は回収済みだ。")
+        elif target_id == 'e_locker_puzzle':
+            self.room_stage.zoom_state = 'e_locker_puzzle.png'
+            self.stage_page.confirm()
+        elif target_id.startswith('e_locker_cell_'):
+            if self.gimmicks['e_locker'].correct:
+                self.room_stage.zoom_state = 'e_locker_contents.png'
+                self.stage_page.confirm()
+                return
 
-        # --- Eの壁：プロジェクターとホワイトボード ---
+            index = int(target_id.rsplit('_', 1)[-1])
+            current_color = self.e_locker_colors[index]
+            next_index = (E_LOCKER_COLOR_CYCLE.index(current_color) + 1) % len(E_LOCKER_COLOR_CYCLE) if current_color else 0
+            self.e_locker_colors[index] = E_LOCKER_COLOR_CYCLE[next_index]
+
+            if self.e_locker_colors == E_LOCKER_CORRECT_COLORS:
+                self.gimmicks['e_locker'].correct = True
+                self.room_stage.zoom_state = 'e_locker_contents.png'
+                self.stage_page.confirm()
+                messagebox.showinfo("成功", "N面のロッカーと同じ配色だ。Eロッカーが開いた！")
+            else:
+                self.stage_page.confirm()
+        elif target_id == 'get_battery':
+            if not self.gimmicks['got_battery'].correct:
+                self.items.append(Item('battery', ITEM_MASTER['battery']['name'], ITEM_MASTER['battery']['img'], ITEM_MASTER['battery']['detail'], ITEM_MASTER['battery']['desc']))
+                self.gimmicks['got_battery'].correct = True
+                self.stage_page.confirm()
+                messagebox.showinfo("発見", "「電池」を手に入れた！")
+            else:
+                messagebox.showinfo("調査", "ロッカーの中はもう空だ。")
+
         elif target_id == 'projector':
             if self.gimmicks['projector'].correct:
                 messagebox.showinfo("プロジェクター", "プロジェクターは稼働中です。ホワイトボードに画像が映し出されています。")
@@ -245,40 +362,21 @@ class GameManager:
                 messagebox.showinfo("確認", "電源が入っていない。動かす方法がありそうだ。")
         elif target_id == 'whiteboard':
             if self.gimmicks['projector'].correct:
-                messagebox.showinfo("ホワイトボード", "ホワイトボードに脱出扉のヒント（暗号の順序）が表示されている！")
+                messagebox.showinfo("ホワイトボード", "ホワイトボードにモニターが光る順番のヒントが表示されている！")
             else:
                 messagebox.showinfo("ホワイトボード", "何も映っていない。白紙のホワイトボードだ。")
 
-        # --- Sの壁：自販機 ---
         elif target_id == 'vending_machine':
-            self.room_stage.zoom_state = 'vending_detail.png'
-            self.stage_page.confirm()
-        elif target_id == 'vending_bottom':
-            # 【変更】カッター未取得かつほうきが選択されている場合のみ取得可能にし、2重取得を防ぐ
-            if not any(i.item_id == 'cutter' for i in self.items):
-                if self.selected_item_id == 'broom':
-                    self.items = [i for i in self.items if i.item_id != 'broom'] # ほうき消滅
-                    self.items.append(Item('cutter', ITEM_MASTER['cutter']['name'], ITEM_MASTER['cutter']['img'], ITEM_MASTER['cutter']['detail'], ITEM_MASTER['cutter']['desc']))
-                    self.selected_item_id = None
-                    self.stage_page.confirm()
-                    messagebox.showinfo("発見", "ほうきで自販機の下を掃き出し、「カッター」を手に入れた！ほうきは壊れた。")
-                else:
-                    messagebox.showinfo("調査", "自販機の下に何か落ちているが手が届かない。道具が必要だ。")
-            else:
-                messagebox.showinfo("調査", "自販機の下にはもう何もない。")
-        elif target_id == 'vending_buttons':
             if not self.gimmicks['vending_power'].correct:
-                ans = simpledialog.askstring("自販機ボタン", "モニターの光るパターンを入力してください (例: 132...):")
-                if ans == "123": # もう一つの部屋のモニター順序の正解例
-                    self.gimmicks['vending_power'].correct = True
-                    messagebox.showinfo("通電", "「ピーッ！」自販機の電源が入り、パネルが明るくなった！")
-                elif ans is not None:
-                    messagebox.showerror("エラー", "反応しない。順番が違うようだ。")
+                self.room_stage.zoom_state = 'S-自販機-謎.png'
             else:
-                messagebox.showinfo("自販機", "電源は入っています。100円を入れてください。")
+                self.room_stage.zoom_state = 'vending_detail.png'
+            self.stage_page.confirm()
+        elif target_id == 'vending_padlock':
+            messagebox.showinfo("自販機", "鍵はかかっていない。謎を解いて電源を入れる必要がある。")
         elif target_id == 'vending_coin_slot':
             if not self.gimmicks['vending_power'].correct:
-                messagebox.showinfo("自販機", "電源が入っていません。")
+                messagebox.showinfo("自販機", "電源が入っていない。まずは自販機の下の謎を解く必要がある。")
             elif self.selected_item_id == 'coin_100':
                 if not any(i.item_id == 'juice' for i in self.items):
                     self.items = [i for i in self.items if i.item_id != 'coin_100']
@@ -288,40 +386,87 @@ class GameManager:
                     messagebox.showinfo("購入", "ガチャ！冷えた「ジュース」が出てきた！")
             else:
                 messagebox.showinfo("自販機", "100円玉を選択して投入してください。")
+        elif target_id == 'vending_bottom':
+            if not any(i.item_id == 'cutter' for i in self.items):
+                if self.selected_item_id == 'broom':
+                    self.items = [i for i in self.items if i.item_id != 'broom']
+                    self.items.append(Item('cutter', ITEM_MASTER['cutter']['name'], ITEM_MASTER['cutter']['img'], ITEM_MASTER['cutter']['detail'], ITEM_MASTER['cutter']['desc']))
+                    self.selected_item_id = None
+                    self.stage_page.confirm()
+                    messagebox.showinfo("発見", "ほうきで自販機の下を掃き出し、「カッター」を手に入れた！ほうきは壊れた。")
+                else:
+                    messagebox.showinfo("調査", "自販機の下の隙間に何か落ちているが手が届かない。細長い道具が必要だ。")
+            else:
+                messagebox.showinfo("調査", "自販機の下にはもう何もない。")
 
-        # --- Wの壁：ロッカー・金庫・引き出し・パソコン ---
+        elif target_id.startswith('vending_puzzle_'):
+            idx = int(target_id.split('_')[-1])
+            if not self.gimmicks['vending_power'].correct:
+                self.vending_current_input.append(idx)
+                current_step = len(self.vending_current_input)
+                expected_idx = self.vending_correct_sequence[current_step - 1]
+
+                if idx != expected_idx:
+                    messagebox.showerror("ミス", "パネルの反応がない。順番が間違っているようだ。最初からやり直しだ。")
+                    self.vending_current_input.clear()
+                elif current_step == len(self.vending_correct_sequence):
+                    self.gimmicks['vending_power'].correct = True
+                    self.room_stage.zoom_state = 'vending_detail.png'
+                    self.stage_page.confirm()
+                    messagebox.showinfo("成功", "カチャッ！正しい順番で四角を押したことで自販機に通電した！")
+            else:
+                messagebox.showinfo("自販機", "すでに電源が入っている。")
+
         elif target_id == 'w_locker':
             self.room_stage.zoom_state = 'w_locker_detail.png'
             self.stage_page.confirm()
+        elif target_id == 'get_shovel':
+            if not self.gimmicks['got_shovel'].correct:
+                self.items.append(Item('shovel', ITEM_MASTER['shovel']['name'], ITEM_MASTER['shovel']['img'], ITEM_MASTER['shovel']['detail'], ITEM_MASTER['shovel']['desc']))
+                self.gimmicks['got_shovel'].correct = True
+                self.stage_page.confirm()
+                messagebox.showinfo("発見", "「シャベル」を手に入れた！")
+            else:
+                messagebox.showinfo("調査", "そこにはもう何もない。")
         elif target_id == 'w_safe':
-            self.room_stage.zoom_state = 'safe_detail.png'
-            self.stage_page.confirm()
-        elif target_id == 'open_safe':
             if self.gimmicks['safe'].correct:
-                messagebox.showinfo("金庫", "金庫はすでに開いています。")
+                self.room_stage.zoom_state = 'W-金庫中身.png'
+                self.stage_page.confirm()
             elif self.selected_item_id == 'safe_key':
                 self.items = [i for i in self.items if i.item_id != 'safe_key']
-                self.items.append(Item('charger', ITEM_MASTER['charger']['name'], ITEM_MASTER['charger']['img'], ITEM_MASTER['charger']['detail'], ITEM_MASTER['charger']['desc']))
                 self.gimmicks['safe'].correct = True
                 self.selected_item_id = None
+                messagebox.showinfo("成功", "金庫の鍵を開けた！")
+                self.room_stage.zoom_state = 'W-金庫中身.png'
                 self.stage_page.confirm()
-                messagebox.showinfo("成功", "金庫が開き、「充電器」を手に入れた！")
             else:
                 messagebox.showinfo("金庫", "鍵のかかった金庫だ。専用の鍵が必要。")
+        elif target_id == 'get_charger':
+            if not self.gimmicks['got_charger'].correct:
+                self.items.append(Item('charger', ITEM_MASTER['charger']['name'], ITEM_MASTER['charger']['img'], ITEM_MASTER['charger']['detail'], ITEM_MASTER['charger']['desc']))
+                self.gimmicks['got_charger'].correct = True
+                self.stage_page.confirm()
+                messagebox.showinfo("発見", "「充電器」を手に入れた！")
+            else:
+                messagebox.showinfo("調査", "金庫の中はもう空っぽだ。")
         elif target_id == 'drawer':
             self.room_stage.zoom_state = 'drawer_detail.png'
             self.stage_page.confirm()
-        elif target_id == 'open_drawer':
-            # 【変更】引き出しの解錠・取得済みフラグ（correct）で判定し、2重取得を防ぐ
-            if not self.gimmicks['drawer'].correct:
+        elif target_id == 'get_coin':
+            if not self.gimmicks['got_coin'].correct:
                 self.items.append(Item('coin_100', ITEM_MASTER['coin_100']['name'], ITEM_MASTER['coin_100']['img'], ITEM_MASTER['coin_100']['detail'], ITEM_MASTER['coin_100']['desc']))
-                self.gimmicks['drawer'].correct = True
+                self.gimmicks['got_coin'].correct = True
                 self.stage_page.confirm()
-                messagebox.showinfo("発見", "引き出しから「百円玉」を発見した！")
+                messagebox.showinfo("発見", "「百円玉」を手に入れた！")
             else:
                 messagebox.showinfo("調査", "引き出しの中はもう空だ。")
         elif target_id == 'pc':
-            self.room_stage.zoom_state = 'pc_detail.png'
+            if self.gimmicks['pc_boot'].correct:
+                # 起動済みなら、ログイン前・ログイン後を問わず pc_login_detail.png を表示する。
+                # ログインが済んでいなければ StagePage 側で画面部分にパスワード画面を重ねて隠す。
+                self.room_stage.zoom_state = 'pc_login_detail.png'
+            else:
+                self.room_stage.zoom_state = 'pc_detail.png'
             self.stage_page.confirm()
         elif target_id == 'pc_screen':
             if not self.gimmicks['pc_boot'].correct:
@@ -329,39 +474,59 @@ class GameManager:
                     self.items = [i for i in self.items if i.item_id != 'charger']
                     self.gimmicks['pc_boot'].correct = True
                     self.selected_item_id = None
-                    messagebox.showinfo("起動", "充電器を接続し、パソコンが起動した！")
+                    self.room_stage.zoom_state = 'pc_login_detail.png'
+                    self.stage_page.confirm()
+                    messagebox.showinfo("起動", "充電器を接続し、パソコンが起動した！パスワード入力画面が表示されている。")
                 else:
                     messagebox.showinfo("PC", "バッテリーが切れていて画面がつかない。充電器が必要だ。")
             elif not self.gimmicks['pc_login'].correct:
                 ans = simpledialog.askstring("PCログイン", "パスワードを入力してください:")
-                if ans == "NAGASAKI": # サンプルパスワード
+                if ans == "8156": 
                     self.gimmicks['pc_login'].correct = True
-                    messagebox.showinfo("ログイン成功", "画面が切り替わり、有益なデータが表示された！")
+                    self.stage_page.confirm()
+                    messagebox.showinfo("ログイン成功", "画面のロックが解除され、隠されていた画面が表示された！")
                 elif ans is not None:
                     messagebox.showerror("エラー", "パスワードが違います。")
             else:
-                messagebox.showinfo("PC", "ログイン済みです。ホワイトボードやモニターのヒントを確認しよう。")
+                messagebox.showinfo("PC", "ログイン済みです。データが表示されている。")
 
-        # --- NSWEのプランター共通処理 ---
+        elif target_id.startswith('monitor_'):
+            monitor_num = target_id.split('_')[-1]
+            messagebox.showinfo("モニター", f"モニター #{monitor_num} が美しく光り輝いている。")
+
         elif target_id in ['planter_n', 'planter_e', 'planter_s', 'planter_w']:
-            p_key = f"planter_{target_id.split('_')[1]}"
-            if self.selected_item_id == 'shovel':
-                # 【変更】東のプランターで、まだアイテム未取得（correct == False）の場合のみ入手可能にする
-                if target_id == 'planter_e' and not self.gimmicks[p_key].correct:
-                    self.items.append(Item('old_key', ITEM_MASTER['old_key']['name'], ITEM_MASTER['old_key']['img'], ITEM_MASTER['old_key']['detail'], ITEM_MASTER['old_key']['desc']))
-                    self.gimmicks[p_key].correct = True
-                    self.stage_page.confirm()
-                    messagebox.showinfo("発見", "東のプランターをシャベルで掘り起こし、「古い鍵」を見つけた！")
-                else:
-                    messagebox.showinfo("調査", "シャベルで土を掘り返したが、何も見つからなかった。")
+            dir_str = target_id.split('_')[1]
+            p_key = f"planter_{dir_str}"
+            if self.gimmicks[p_key].correct:
+                self.room_stage.zoom_state = f"planter_{dir_str}_dig.png"
             else:
-                messagebox.showinfo("調査", "観葉植物が植えられているプランターだ。固い土を掘る道具が必要そうだ。")
+                self.room_stage.zoom_state = "planter_detail.png"
+            self.stage_page.confirm()
 
-        # --- もう一つの部屋：モニター ---
-        elif target_id == 'monitors':
-            messagebox.showinfo("モニター群", "9台のモニターが [ 3 ➔ 1 ➔ 2 ] の順番で怪しく光った！")
+        elif target_id in ['dig_planter_n', 'dig_planter_e', 'dig_planter_s', 'dig_planter_w']:
+            dir_str = target_id.split('_')[2]
+            p_key = f"planter_{dir_str}"
+            if not self.gimmicks[p_key].correct:
+                if self.selected_item_id == 'shovel':
+                    self.gimmicks[p_key].correct = True
+                    self.room_stage.zoom_state = f"planter_{dir_str}_dig.png"
+                    self.stage_page.confirm()
+                    if dir_str == 'e':
+                        self.items.append(Item('old_key', ITEM_MASTER['old_key']['name'], ITEM_MASTER['old_key']['img'], ITEM_MASTER['old_key']['detail'], ITEM_MASTER['old_key']['desc']))
+                        messagebox.showinfo("発見", "東のプランターをシャベルで掘り起こし、「古い鍵」を見つけた！")
+                    elif dir_str == 'n':
+                        messagebox.showinfo("調査", "北のプランターを掘り返したが、ミミズが出てきただけで特に何もない。")
+                    elif dir_str == 's':
+                        messagebox.showinfo("調査", "南のプランターを掘り返したが、ただの硬い土だった。")
+                    elif dir_str == 'w':
+                        messagebox.showinfo("調査", "西のプランターを掘り返したが、何も見つかったかった。")
+                else:
+                    messagebox.showinfo("調査", "観葉植物の植えられた土だ。固くて素手では掘れない。道具が必要そうだ。")
+            else:
+                messagebox.showinfo("調査", "すでにしっかりと掘り返してある。")
 
     def arrow_identify(self, click_direction: str) -> None:
+        """左右の矢印をクリックした際の視点切替を処理する"""
         if self.room_stage.current_room == 1 and not self.room_stage.zoom_state:
             if click_direction == 'right':
                 self.room_stage.current_dir_index = (self.room_stage.current_dir_index + 1) % 4
@@ -371,11 +536,9 @@ class GameManager:
             self.stage_page.confirm()
 
     def item_identify(self, item_id: str) -> None:
-        """アイテムのダブルクリック（詳細表示・合成の起点）"""
+        """アイテムの詳細表示や合成処理を行う"""
         target_item = next((i for i in self.items if i.item_id == item_id), None)
         if target_item:
-            # 特殊な合成処理
-            # 1. ジュース + カッター = 金庫の鍵
             if item_id == 'juice' and any(i.item_id == 'cutter' for i in self.items):
                 self.items = [i for i in self.items if i.item_id not in ['juice', 'cutter']]
                 self.items.append(Item('safe_key', ITEM_MASTER['safe_key']['name'], ITEM_MASTER['safe_key']['img'], ITEM_MASTER['safe_key']['detail'], ITEM_MASTER['safe_key']['desc']))
@@ -383,8 +546,6 @@ class GameManager:
                 self.stage_page.confirm()
                 messagebox.showinfo("合成", "ジュースの缶をカッターで切り開き、中から「金庫の鍵」を取り出した！")
                 return
-            
-            # 2. リモコン + 電池 = 電池入りリモコン
             if item_id == 'remote' and any(i.item_id == 'battery' for i in self.items):
                 self.items = [i for i in self.items if i.item_id not in ['remote', 'battery']]
                 self.items.append(Item('remote_with_battery', ITEM_MASTER['remote_with_battery']['name'], ITEM_MASTER['remote_with_battery']['img'], ITEM_MASTER['remote_with_battery']['detail'], ITEM_MASTER['remote_with_battery']['desc']))
@@ -397,10 +558,12 @@ class GameManager:
             self.stage_page.confirm()
 
     def inventory_item_identify(self, item_id: str) -> None:
+        """インベントリ内のアイテム選択処理"""
         self.selected_item_id = item_id
         self.inventory_page.confirm_emphasize()
 
     def get_data(self, item: Any, flag: bool) -> dict:
+        """現在のゲーム状態を辞書形式で取得する（セーブ用）"""
         if flag:
             return {
                 "room_stage": {
@@ -413,11 +576,13 @@ class GameManager:
                     "items": [i.item_id for i in self.items],
                     "selected_item_id": self.selected_item_id
                 },
-                "gimmicks": {k: v.correct for k, v in self.gimmicks.items()}
+                "gimmicks": {k: v.correct for k, v in self.gimmicks.items()},
+                "e_locker_colors": self.e_locker_colors
             }
         return {}
 
     def reflect_data(self, item: Any, flag: bool) -> None:
+        """保存されたデータをゲーム内に反映する（ロード用）"""
         if flag and isinstance(item, dict):
             room_data = item.get("room_stage", {})
             self.room_stage.current_room = room_data.get("current_room", 1)
@@ -440,13 +605,14 @@ class GameManager:
                 if g_id in self.gimmicks:
                     self.gimmicks[g_id].correct = is_correct
 
+            saved_colors = item.get("e_locker_colors", [None] * 9)
+            if isinstance(saved_colors, list) and len(saved_colors) == 9:
+                self.e_locker_colors = [color if color in E_LOCKER_COLOR_CYCLE else None for color in saved_colors]
+
             self.stage_page.confirm()
 
-    def match(self) -> None:
-        pass
-
     def check(self, flag: bool, gimmick_id: str) -> bool:
-        """脱出扉や部屋移動扉のクリア判定チェック"""
+        """特定のギミック（扉など）の解錠判定を行う"""
         if flag:
             if gimmick_id == 'room2_door':
                 if self.selected_item_id == 'old_key':
@@ -454,26 +620,28 @@ class GameManager:
                     return True
             elif gimmick_id == 'exit_door':
                 ans = simpledialog.askstring("脱出扉", "最終暗号を入力してください:")
-                if ans == "ESCAPE": # サンプル脱出暗号
+                if ans == "ESCAPE": 
                     self.gimmicks['exit_door'].correct = True
                     return True
                 elif ans is not None:
                     messagebox.showerror("エラー", "鍵は開かない。暗号を確認しよう。")
         return False
 
-
 class SavedataManager:
+    """セーブ・ロードの命令を統括するマネージャー"""
     def __init__(self, game_manager: GameManager):
         self.save_data = SaveData()
         self.game_manager = game_manager
         self.current_slot: str = "slot_1"
 
     def save_instruct(self) -> None:
+        """現在の状態を指定スロットにセーブする"""
         current_state = self.game_manager.get_data(None, True)
         self.save_data.overwrite((self.current_slot, current_state), True)
         messagebox.showinfo("セーブ完了", f"{self.current_slot} にセーブしました。")
 
     def data_instruct(self, item: Any, flag: bool) -> None:
+        """指定スロットからデータをロードする"""
         loaded_state = self.save_data.get_save_data(item, flag)
         if loaded_state:
             self.game_manager.reflect_data(loaded_state, True)
@@ -484,9 +652,11 @@ class SavedataManager:
 
 # =========================================================
 # boundary パッケージ (バウンダリ層・UI)
+# ユーザーインターフェース（画面・ボタン等）を管理するクラス群
 # =========================================================
 
 class SavedataListPage:
+    """セーブデータ選択画面（スロット一覧）を構築するクラス"""
     def __init__(self, root: tk.Tk, savedata_manager: SavedataManager):
         self.root = root
         self.savedata_manager = savedata_manager
@@ -537,6 +707,7 @@ class SavedataListPage:
                 self.window.destroy()
 
 class MenuPage:
+    """タイトルメニュー画面を管理するクラス"""
     def __init__(self, parent_frame: tk.Frame, game_manager: GameManager, savedata_list_page: SavedataListPage, stage_page: Any):
         self.parent_frame = parent_frame
         self.game_manager = game_manager
@@ -565,6 +736,7 @@ class MenuPage:
         self.savedata_list_page.confirm()
 
 class InventoryPage:
+    """画面下の所持アイテム一覧および操作を管理するクラス"""
     def __init__(self, parent_frame: tk.Widget):
         self.parent_frame = parent_frame
         self.game_manager: Optional[GameManager] = None
@@ -577,6 +749,7 @@ class InventoryPage:
         self.game_manager = manager
 
     def confirm_emphasize(self) -> None:
+        """アイテムの選択状態を反映してボタンリストを再描画する"""
         for child in self.item_buttons_frame.winfo_children():
             child.destroy()
 
@@ -618,6 +791,7 @@ class InventoryPage:
 
 
 class StagePage:
+    """ゲームのメインプレイ画面およびモニターの順次点灯アニメーションを管理するクラス"""
     def __init__(self, parent_frame: tk.Frame, room_stage: RoomStage, inventory_page: InventoryPage):
         self.parent_frame = parent_frame
         self.room_stage = room_stage
@@ -625,6 +799,20 @@ class StagePage:
         self.game_manager: Optional[GameManager] = None
         self.savedata_list_page: Optional[SavedataListPage] = None
         self.menu_page: Optional[MenuPage] = None 
+
+        # ルーム2用モニター順次点灯アニメーション用変数
+        self.monitor_anim_job: Optional[str] = None
+        self.current_lit_monitor_index: int = 0
+        # 順番に光らせるモニターの順番リスト (0から8番)
+        self.monitor_sequence: List[int] = list(MONITOR_LIGHT_SEQUENCE)
+
+        # light.png は 640x480 の透明画像で、光る矩形は画像内の
+        # (261, 212) 〜 (350, 259) という固定位置に描かれている。
+        # この矩形の「中心」を各モニター画面の中心に一致させることで、
+        # 正しい位置に光る演出を表示する（詳細は _draw_light_on_monitor 参照）。
+        self._light_content_bbox = (261, 212, 350, 259)
+        lx1, ly1, lx2, ly2 = self._light_content_bbox
+        self._light_content_center = ((lx1 + lx2) / 2, (ly1 + ly2) / 2)
 
         nav_frame = tk.Frame(parent_frame)
         nav_frame.pack(side=tk.BOTTOM, fill=tk.X, pady=5)
@@ -648,7 +836,7 @@ class StagePage:
         self.right_button = tk.Button(right_nav_frame, text="右を向く ▶", command=self._arrow_click_right, width=12)
         self.right_button.pack(side=tk.RIGHT)
 
-        self.canvas = tk.Canvas(parent_frame, bg="black", width=640, height=320)
+        self.canvas = tk.Canvas(parent_frame, bg="black", width=640, height=480, highlightthickness=0)
         self.canvas.pack(expand=True, fill=tk.BOTH)
 
         self.canvas.bind("<Button-1>", self._on_canvas_click)
@@ -660,14 +848,26 @@ class StagePage:
         image_files = {
             'N': "N.png", 'E': "E.png", 'S': "S.png", 'W': "W.png",
             'room2': "room2.png",
-            'marker.png': "marker.png", # クリック判定位置を示すマーカー画像（任意の画像ファイル）
+            'whiteboard_projected.png': "E-ホワイトボード-プロジェクタ起動後.png",
+            'marker.png': "marker.png", 
+            'light.png': "light.png",
             'n_locker_detail.png': "n_locker_detail.png",
             'e_locker_detail.png': "e_locker_detail.png",
+            'e_locker_puzzle.png': "E-ロッカー,謎.png",
+            'e_locker_contents.png': "E-ロッカー中身.png",
             'vending_detail.png': "vending_detail.png",
+            'S-自販機-謎.png': "S-自販機-謎.png",
             'w_locker_detail.png': "w_locker_detail.png",
-            'safe_detail.png': "safe_detail.png",
+            'W-金庫中身.png': "W-金庫中身.png",
             'drawer_detail.png': "drawer_detail.png",
             'pc_detail.png': "pc_detail.png",
+            'pc_login_detail.png': "pc_login_detail.png",
+            'pc_password_sample.png': "パソコンパスワード画面サンプル.png",
+            'planter_detail.png': "planter_detail.png",
+            'planter_n_dig.png': "planter_n_dig.png",
+            'planter_e_dig.png': "planter_e_dig.png",
+            'planter_s_dig.png': "planter_s_dig.png",
+            'planter_w_dig.png': "planter_w_dig.png",
             'broom_detail.png': "broom_detail.png",
             'remote_detail.png': "remote_detail.png",
             'cutter_detail.png': "cutter_detail.png",
@@ -685,42 +885,147 @@ class StagePage:
             except tk.TclError:
                 self.images[key] = tk.PhotoImage()
 
+        # --- PCログイン前に画面を隠すためのパスワード画面オーバーレイを準備 ---
+        # 「パソコンパスワード画面サンプル.png」の白いパネル部分だけを切り出し、
+        # pc_login_detail.png の画面部分(37,54)-(601,348)に合わせてリサイズしておく。
+        # ログイン前はこの画像を画面の上に重ねて描画することで中身を隠す。
+        # Pillowが無い/画像が無い環境でも起動は継続できるよう例外処理する。
+        self.pc_password_overlay: Optional[tk.PhotoImage] = None
+        self.pc_password_overlay_pos = (37, 54)
+        try:
+            from PIL import Image as PILImage, ImageTk
+            src = PILImage.open("パソコンパスワード画面サンプル.png").convert("RGBA")
+            panel = src.crop((66, 48, 544, 432))  # サンプル画像内の白いパネル部分
+            target_w = 601 - 37   # pc_login_detail.png の画面幅
+            target_h = 348 - 54   # pc_login_detail.png の画面高さ
+            panel_resized = panel.resize((target_w, target_h))
+            self.pc_password_overlay = ImageTk.PhotoImage(panel_resized)
+        except Exception:
+            self.pc_password_overlay = None
+
     def set_managers(self, game_manager: GameManager, savedata_list_page: SavedataListPage, menu_page: MenuPage) -> None:
         self.game_manager = game_manager
         self.savedata_list_page = savedata_list_page
         self.menu_page = menu_page
 
+    def _cancel_monitor_animation(self) -> None:
+        """実行中のモニター順次点灯アニメーションタイマーがあればキャンセルする"""
+        if self.monitor_anim_job is not None:
+            try:
+                self.parent_frame.after_cancel(self.monitor_anim_job)
+            except Exception:
+                pass
+            self.monitor_anim_job = None
+
+    def _animate_monitors(self) -> None:
+        """Room 2において、モニターを順番に光らせるアニメーションループ処理"""
+        if self.room_stage.current_room == 2 and not self.room_stage.zoom_state:
+            # 次に光らせるモニターのインデックスを更新
+            self.current_lit_monitor_index = (self.current_lit_monitor_index + 1) % len(self.monitor_sequence)
+            self.confirm()  # 画面を再描画して現在の点灯状態を反映
+            # 400ミリ秒ごとに次のモニターへ切り替え
+            self.monitor_anim_job = self.parent_frame.after(400, self._animate_monitors)
+
     def confirm(self) -> None:
-        """画面を再描画し、背景とクリック判定位置のマーカー（または枠線）を重ねて表示する"""
+        """画面を更新し、現在のステージ状態やモニターの発光状態を描画する"""
         if self.menu_page:
             self.menu_page.parent_frame.pack_forget()
         self.parent_frame.pack(expand=True, fill=tk.BOTH)
+
+        # 部屋がRoom 2以外に変わった場合はアニメーションを停止する
+        if self.room_stage.current_room != 2:
+            self._cancel_monitor_animation()
 
         img_key = self.room_stage.zoom_state if self.room_stage.zoom_state else (
             self.room_stage.direction if self.room_stage.current_room == 1 else 'room2'
         )
 
         if self.canvas_wall_id is not None:
-            self.canvas.delete("all") # 全てのキャンバス上の描画アイテムをクリア
+            self.canvas.delete("all") 
 
-        # 背景画像の描画
         self.canvas_wall_id = self.canvas.create_image(0, 0, image=self.images.get(img_key, tk.PhotoImage()), anchor=tk.NW)
 
-        # クリック判定の位置を視覚的に表示する処理
+        # PCが起動済みでまだログインしていない間は、画面部分にパスワード入力画面を重ねて隠す
+        if (self.room_stage.zoom_state == 'pc_login_detail.png' and self.game_manager
+                and not self.game_manager.gimmicks['pc_login'].correct):
+            if self.pc_password_overlay:
+                ox, oy = self.pc_password_overlay_pos
+                self.canvas.create_image(ox, oy, image=self.pc_password_overlay, anchor=tk.NW)
+            else:
+                # Pillowが無い等の理由で切り出し画像が用意できない場合のフォールバック。
+                # サンプル画像をそのまま画面部分の左上に重ねて表示する（サイズは調整されない）。
+                fallback_img = self.images.get('pc_password_sample.png')
+                if fallback_img and fallback_img.width() > 1:
+                    ox, oy = self.pc_password_overlay_pos
+                    self.canvas.create_image(ox, oy, image=fallback_img, anchor=tk.NW)
+
+        # プロジェクター起動後は、E面のホワイトボード部分に暗号画像を表示する。
+        if (self.room_stage.current_room == 1 and self.room_stage.direction == 'E'
+                and not self.room_stage.zoom_state and self.game_manager
+                and self.game_manager.gimmicks['projector'].correct):
+            projected_img = self.images.get('whiteboard_projected.png')
+            if projected_img and projected_img.width() > 1:
+                self.canvas.create_image(228, 73, image=projected_img, anchor=tk.NW)
+
         current_state_key = (self.room_stage.current_room, self.room_stage.direction, self.room_stage.zoom_state)
         layout_list = STAGE_LAYOUT.get(current_state_key, [])
         marker_img = self.images.get('marker.png')
+        light_img = self.images.get('light.png')
 
         for layout in layout_list:
             rx1, ry1, rx2, ry2 = layout['rect']
-            if marker_img and marker_img.width() > 1:
+            target_id = layout['target']
+
+            # Keep the source grid visible and fill only the inside of each E-locker cell.
+            is_e_locker_cell = isinstance(target_id, str) and target_id.startswith('e_locker_cell_')
+            if is_e_locker_cell:
+                cell_index = int(layout['target'].rsplit('_', 1)[-1])
+                cell_color = self.game_manager.e_locker_colors[cell_index] if self.game_manager else None
+                self.canvas.create_rectangle(
+                    rx1 + 4, ry1 + 4, rx2 - 4, ry2 - 4,
+                    fill=cell_color or 'white', outline=''
+                )
+                continue
+
+            # 投影中はホワイトボードのクリック目印を表示せず、暗号画像を見せる。
+            is_projected_whiteboard = (
+                target_id == 'whiteboard' and self.game_manager
+                and self.game_manager.gimmicks['projector'].correct
+            )
+            if is_projected_whiteboard:
+                continue
+            
+            # Room 2のモニター判定：順番に沿ってアクティブになっているモニターを光らせる
+            is_monitors_screen = (
+                self.room_stage.current_room == 2 and isinstance(target_id, str)
+                and target_id.startswith('monitor_')
+            )
+            lit_up = False
+            if is_monitors_screen and self.game_manager:
+                if self.game_manager.gimmicks['monitors_flashed'].correct:
+                    # 現在のアニメーションステップで該当するモニター番号と一致するか判定
+                    target_monitor_id = int(layout['target'].split('_')[-1])
+                    current_active_seq_val = self.monitor_sequence[self.current_lit_monitor_index]
+                    if target_monitor_id == current_active_seq_val:
+                        lit_up = True
+
+            if lit_up and light_img and light_img.width() > 1:
+                # light.png内の光る矩形の中心を、このモニター画面の中心に合わせて描画する。
+                # (rx1, ry1)にそのまま描画すると、light.png内部の矩形オフセット分
+                # さらにズレてしまうため、中心合わせで補正する。
+                screen_center_x = (rx1 + rx2) / 2
+                screen_center_y = (ry1 + ry2) / 2
+                draw_x = screen_center_x - self._light_content_center[0]
+                draw_y = screen_center_y - self._light_content_center[1]
+                self.canvas.create_image(draw_x, draw_y, image=light_img, anchor=tk.NW)
+            elif marker_img and marker_img.width() > 1 and not is_monitors_screen:
                 self.canvas.create_image(rx1, ry1, image=marker_img, anchor=tk.NW)
-            else:
+            elif not is_monitors_screen:
                 self.canvas.create_rectangle(
                     rx1, ry1, rx2, ry2,
-                    outline="yellow",  # 枠線の色
-                    width=2,           # 枠線の太さ
-                    dash=(4, 4)        # 点線スタイル
+                    outline="yellow",  
+                    width=2,           
+                    dash=(4, 4)
                 )
 
         if self.room_stage.zoom_state:
@@ -747,6 +1052,7 @@ class StagePage:
 
     def _return_to_title(self) -> None:
         if messagebox.askyesno("確認", "タイトル画面に戻りますか？\nセーブしていない進行状況は失われます。"):
+            self._cancel_monitor_animation()
             if self.menu_page:
                 self.menu_page.confirm()
 
@@ -758,6 +1064,7 @@ class StagePage:
         if self.room_stage.zoom_state:
             return
         if self.room_stage.current_room == 2:
+            self._cancel_monitor_animation()
             self.room_stage.current_room = 1
             self.room_stage.direction = 'S'
             self.room_stage.current_dir_index = 2
@@ -772,11 +1079,13 @@ class StagePage:
     def _back_click(self) -> None:
         self.room_stage.zoom_state = None
         self.confirm()
+        # ズーム解除してRoom2に戻った場合、アニメーションが停止していれば再開する
+        if self.room_stage.current_room == 2 and self.monitor_anim_job is None:
+            self._animate_monitors()
 
     def _get_clicked_target(self, x: int, y: int) -> Optional[dict]:
         current_state_key = (self.room_stage.current_room, self.room_stage.direction, self.room_stage.zoom_state)
         layout_list = STAGE_LAYOUT.get(current_state_key, [])
-        
         for layout in layout_list:
             rx1, ry1, rx2, ry2 = layout['rect']
             if rx1 <= x <= rx2 and ry1 <= y <= ry2:
@@ -794,31 +1103,47 @@ class StagePage:
         if action_type == 'door':
             if self.game_manager:
                 if target_val == 2:
+                    # 部屋2へ移る際、扉に定義された target_dir に向きを合わせる。
+                    # これを行わないと room_stage.direction が 'S' のまま残り、
+                    # STAGE_LAYOUT の (2, 'N', None) キーと一致せず
+                    # モニターの当たり判定が一切取得できなくなるバグがあった。
+                    new_dir = target_data.get('target_dir', 'N')
                     if self.game_manager.gimmicks['room2_door'].correct:
                         self.room_stage.current_room = 2
+                        self.room_stage.direction = new_dir
                         self.room_stage.zoom_state = None
                         self.confirm()
+                        # Room 2に入った瞬間にモニターの順次点灯アニメーションを開始
+                        self._animate_monitors()
                     else:
                         success = self.game_manager.check(True, 'room2_door')
                         if success:
                             self.room_stage.current_room = 2
+                            self.room_stage.direction = new_dir
                             self.room_stage.zoom_state = None
                             self.confirm()
+                            # Room 2に入った瞬間にモニターの順次点灯アニメーションを開始
+                            self._animate_monitors()
                             messagebox.showinfo("扉", "古い鍵で扉が開き、もう一つの部屋に入った！")
                         else:
                             messagebox.showinfo("扉", "鍵がかかっている。インベントリから「古い鍵」を選択した状態で扉を調べてください。")
                 else:
+                    self._cancel_monitor_animation()
                     self.room_stage.current_room = target_val
                     self.confirm()
 
         elif action_type in ('object', 'zoom_action'):
             if self.game_manager:
+                # ズームに入る際はアニメーションを一旦停止
+                if target_val.startswith('monitor_'):
+                    pass
                 self.game_manager.object_identify(target_val)
 
         elif action_type == 'gimmick_door':
             if self.game_manager:
                 success = self.game_manager.check(True, target_val)
                 if success:
+                    self._cancel_monitor_animation()
                     player_name = self.game_manager.player.name
                     messagebox.showinfo("ゲームクリア", f"おめでとうございます！\n暗号を解き明かし、{player_name}は無事に脱出に成功しました！")
                     self.parent_frame.winfo_toplevel().destroy()
@@ -835,8 +1160,8 @@ class StagePage:
 # =========================================================
 if __name__ == "__main__":
     root = tk.Tk()
-    root.title("脱出ゲーム - 完全版（2重取得防止修正済み）")
-    root.geometry("640x520")
+    root.title("脱出ゲーム")
+    root.geometry("640x680")
 
     menu_frame = tk.Frame(root)
     game_frame = tk.Frame(root)
@@ -858,10 +1183,6 @@ if __name__ == "__main__":
     inventory_page.set_manager(game_manager)
     stage_page.set_managers(game_manager, savedata_list_page, menu_page)
 
-    # テストプレイ用にシャベルを初期付与
-    initial_shovel = Item('shovel', ITEM_MASTER['shovel']['name'], ITEM_MASTER['shovel']['img'], ITEM_MASTER['shovel']['detail'], ITEM_MASTER['shovel']['desc'])
-    game_manager.items.append(initial_shovel)
-
-    print("--- 脱出ゲーム 2重取得防止修正版 起動 ---")
+    print("--- 脱出ゲーム 起動 ---")
     menu_page.confirm()
     root.mainloop()
