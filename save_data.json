@@ -1,7 +1,49 @@
 {
-    "current_direction": "北",
-    "inventory": [],
-    "key_picked": true,
-    "door_locked": false,
-    "north_object": "【大きな鉄の扉】\n（鍵が開いた！脱出できるぞ！）"
+    "room_stage": {
+        "current_room": 1,
+        "current_dir_index": 0,
+        "direction": "N",
+        "zoom_state": null
+    },
+    "inventory": {
+        "items": [
+            "key"
+        ],
+        "selected_item_id": null
+    },
+    "slot_1": {
+        "room_stage": {
+            "current_room": 1,
+            "current_dir_index": 0,
+            "direction": "N",
+            "zoom_state": null
+        },
+        "inventory": {
+            "items": [
+                "coin_100",
+                "remote",
+                "cutter",
+                "broom",
+                "remote"
+            ],
+            "selected_item_id": null
+        },
+        "gimmicks": {
+            "exit_door": false,
+            "room2_door": false,
+            "n_locker": true,
+            "e_locker": false,
+            "w_locker": false,
+            "drawer": true,
+            "safe": false,
+            "vending_power": false,
+            "pc_boot": false,
+            "pc_login": false,
+            "projector": false,
+            "planter_n": false,
+            "planter_e": false,
+            "planter_s": false,
+            "planter_w": false
+        }
+    }
 }
